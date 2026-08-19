@@ -1,17 +1,21 @@
-from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, FileResponse
-from fastapi.staticfiles import StaticFiles
+import os
 import sqlite3
-import uvicorn
 from datetime import datetime
+from fastapi import FastAPI
+from fastapi.responses import FileResponse
+from pydantic import BaseModel
 
-app = FastAPI()
+app = FastAPI(title="HimResilience API", version="1.0")
 
+# Base directory for reliable file serving on cloud
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
+# Database Setup
 def init_db():
-    conn = sqlite3.connect('disaster.db')
+    db_path = os.path.join(BASE_DIR, "disaster.db")
+    conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
-    cursor.execute('''
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS sos_alerts (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             lat REAL,
@@ -19,60 +23,63 @@ def init_db():
             emergency_type TEXT,
             timestamp TEXT
         )
-    ''')
+    """)
     conn.commit()
     conn.close()
 
 init_db()
 
+class SOSRequest(BaseModel):
+    lat: float
+    lng: float
+    emergency_type: str = "CRITICAL_LIVE_CITIZEN_SOS"
 
-@app.get("/", response_class=HTMLResponse)
+@app.get("/")
 def read_root():
-    return FileResponse("app.html")
+    app_file = os.path.join(BASE_DIR, "app.html")
+    return FileResponse(app_file, media_type="text/html")
 
-@app.get("/admin", response_class=HTMLResponse)
+@app.get("/admin")
 def read_admin():
-    return FileResponse("index.html")
-
-@app.get("/manifest.json")
-def get_manifest():
-    return FileResponse("manifest.json")
+    admin_file = os.path.join(BASE_DIR, "index.html")
+    return FileResponse(admin_file, media_type="text/html")
 
 @app.get("/sw.js")
-def get_sw():
-    return FileResponse("sw.js")
-
+def read_sw():
+    sw_file = os.path.join(BASE_DIR, "sw.js")
+    return FileResponse(sw_file, media_type="application/javascript")
 
 @app.post("/api/sos")
-async def trigger_sos(lat: float, lng: float, emergency_type: str = "CITIZEN_MOBILE_GPS_SOS"):
-    conn = sqlite3.connect('disaster.db')
+def create_sos(sos: SOSRequest):
+    db_path = os.path.join(BASE_DIR, "disaster.db")
+    conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
-    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    cursor.execute("INSERT INTO sos_alerts (lat, lng, emergency_type, timestamp) VALUES (?, ?, ?, ?)",
-                   (lat, lng, emergency_type, now_str))
+    time_now = datetime.now().strftime("%H:%M:%S")
+    cursor.execute(
+        "INSERT INTO sos_alerts (lat, lng, emergency_type, timestamp) VALUES (?, ?, ?, ?)",
+        (sos.lat, sos.lng, sos.emergency_type, time_now)
+    )
     conn.commit()
+    new_id = cursor.lastrowid
     conn.close()
-    return {"status": "success", "message": "Emergency SOS Logged in Database"}
-
+    return {"status": "success", "id": new_id}
 
 @app.get("/api/sos_list")
 def get_sos_list():
-    conn = sqlite3.connect('disaster.db')
+    db_path = os.path.join(BASE_DIR, "disaster.db")
+    conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
-    cursor.execute("SELECT id, lat, lng, emergency_type, timestamp FROM sos_alerts ORDER BY id DESC")
+    cursor.execute("SELECT id, lat, lng, emergency_type, timestamp FROM sos_alerts ORDER BY id DESC LIMIT 20")
     rows = cursor.fetchall()
     conn.close()
     
-    result = []
+    alerts = []
     for r in rows:
-        result.append({
+        alerts.append({
             "id": r[0],
             "lat": r[1],
             "lng": r[2],
             "emergency_type": r[3],
             "timestamp": r[4]
         })
-    return result
-
-if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    return alerts
