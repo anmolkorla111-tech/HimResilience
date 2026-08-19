@@ -3,17 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>HimResilience | Emergency Response System</title>
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <meta name="google-site-verification" content="_d4rfVbOnxNZ4pyj4mBnA7Vkf3m0RiCkIqEXkkp1Vmk" />
+    <title>HimResilience | Citizen Emergency Tactical Node</title>
     
     <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#070d18">
+    <meta name="theme-color" content="#070c18">
 
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap');
 
         body {
             background-color: #060b13;
@@ -35,6 +39,11 @@
             background: linear-gradient(180deg, rgba(15, 23, 42, 0.85) 0%, rgba(10, 15, 26, 0.95) 100%);
             border: 1px solid rgba(51, 65, 85, 0.6);
             backdrop-filter: blur(16px);
+        }
+
+        .hud-card-active {
+            border-color: rgba(59, 130, 246, 0.6);
+            box-shadow: 0 0 25px -5px rgba(59, 130, 246, 0.15);
         }
 
         #map {
@@ -73,6 +82,7 @@
             color: #f8fafc !important;
             border: 1px solid #334155;
             border-radius: 0.75rem;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
         }
         .leaflet-popup-tip {
             background: #0f172a !important;
@@ -133,7 +143,7 @@
                 </div>
             </div>
 
-            <div class="hud-card rounded-2xl p-5 sm:p-6 text-center relative overflow-hidden border border-red-900/40">
+            <div class="hud-card hud-card-active rounded-2xl p-5 sm:p-6 text-center relative overflow-hidden border border-red-900/40">
                 <div class="absolute -top-12 -right-12 w-32 h-32 bg-red-600/10 rounded-full blur-2xl pointer-events-none"></div>
 
                 <div class="mb-4">
@@ -270,8 +280,8 @@
             const locName = document.getElementById("locationName");
             const led = document.getElementById("gpsLed");
 
-            coordsDisplay.innerText = "Connecting to Hardware GNSS...";
-            locName.innerText = "Requesting Satellite Fix...";
+            coordsDisplay.innerText = "Locking GNSS Signal...";
+            locName.innerText = "Requesting Live Position...";
             led.className = "w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse";
 
             if ("geolocation" in navigator) {
@@ -290,18 +300,19 @@
                         fetchOSMSpatialShelters(currentLat, currentLng);
                     },
                     (err) => {
-                        currentLat = 31.7087;
-                        currentLng = 76.9320;
-                        coordsDisplay.innerText = `${currentLat.toFixed(5)}, ${currentLng.toFixed(5)}`;
-                        locName.innerText = "Mandi Sector (Permission Fallback)";
-                        led.className = "w-2.5 h-2.5 rounded-full bg-sky-400";
-
-                        renderUserPositionOnMap(currentLat, currentLng, 100);
-                        fetchLiveTelemetry(currentLat, currentLng);
-                        loadFallbackGridShelters();
+                        locName.innerText = "⚠️ Allow GPS Permission in Browser Settings";
+                        led.className = "w-2.5 h-2.5 rounded-full bg-rose-500";
                     },
-                    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+                    { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
                 );
+
+                navigator.geolocation.watchPosition((pos) => {
+                    currentLat = pos.coords.latitude;
+                    currentLng = pos.coords.longitude;
+                    coordsDisplay.innerText = `${currentLat.toFixed(5)}, ${currentLng.toFixed(5)}`;
+                    led.className = "w-2.5 h-2.5 rounded-full bg-emerald-400";
+                    renderUserPositionOnMap(currentLat, currentLng, Math.round(pos.coords.accuracy || 10));
+                }, (err) => {}, { enableHighAccuracy: true });
             }
         }
 
@@ -509,13 +520,13 @@
             } finally {
                 setTimeout(() => {
                     btn.disabled = false;
-                    statusMsg.innerHTML = "STATUS: STANDBY • READY TO TRANSMIT";
+                    statusMsg.innerHTML = "STATUS: READY • STANDBY";
                 }, 4000);
             }
         }
 
         function sendGsmDistress() {
-            const body = encodeURIComponent(`EMERGENCY DISTRESS SOS! I need immediate rescue. GPS: Lat ${currentLat.toFixed(5)}, Lng ${currentLng.toFixed(5)}. Map: https://maps.google.com/?q=${currentLat},${currentLng}`);
+            const body = encodeURIComponent(`EMERGENCY DISTRESS SOS! I need immediate evacuation. GPS: Lat ${currentLat.toFixed(5)}, Lng ${currentLng.toFixed(5)}. Map: https://maps.google.com/?q=${currentLat},${currentLng}`);
             window.location.href = `sms:112?body=${body}`;
         }
 
