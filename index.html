@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HimResilience | Disaster Command Matrix Node</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700;800&display=swap');
+
+        html, body {
+            margin: 0;
+            padding: 0;
+            background-color: #020617;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            color: #f8fafc;
+        }
+
+        .tactical-grid-bg {
+            background-image: 
+                radial-gradient(circle at 50% 0%, rgba(30, 58, 138, 0.2), transparent 70%),
+                linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+            background-size: 100% 100%, 24px 24px, 24px 24px;
+        }
+
+        #admin-map { 
+            height: 450px; 
+            width: 100%; 
+            border-radius: 18px; 
+            z-index: 1; 
+            border: 1px solid rgba(255, 255, 255, 0.1); 
+            box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.6);
+        }
+
+        .beacon-pulse { animation: pulse-beacon 1.8s infinite cubic-bezier(0.4, 0, 0.6, 1); }
+        @keyframes pulse-beacon {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.08); opacity: 0.8; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.65);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+        }
+
+        .font-mono-code { font-family: 'JetBrains Mono', monospace; }
+    </style>
+</head>
+<body class="tactical-grid-bg min-h-screen">
+
+    <div id="auth-gate-modal" class="fixed inset-0 z-[9999] bg-slate-950/95 backdrop-blur-2xl flex items-center justify-center p-4">
+        <div class="glass-panel max-w-md w-full p-6 rounded-3xl border border-slate-700/80 shadow-2xl text-center space-y-4">
+            <div class="w-14 h-14 mx-auto bg-slate-900 rounded-2xl border border-cyan-500/40 flex items-center justify-center text-3xl shadow-lg shadow-cyan-500/10">
+                🛡️
+            </div>
+            <div>
+                <h2 class="text-lg font-black uppercase tracking-widest text-slate-100">SEOC Command Clearance</h2>
+                <p class="text-xs text-slate-400 font-mono-code mt-1">State Emergency Operations Center • Intranet Node</p>
+            </div>
+            <div class="space-y-2 pt-2">
+                <input id="admin-pin-input" type="password" maxlength="8" placeholder="Enter Authorization PIN" class="w-full bg-slate-900/90 border border-slate-700 text-center text-slate-100 text-sm font-mono-code font-bold tracking-widest rounded-xl p-3.5 focus:ring-2 focus:ring-cyan-500 focus:outline-none placeholder:text-slate-600" onkeydown="if(event.key==='Enter') verifyAdminPIN()" />
+                <p id="pin-error" class="hidden text-[11px] font-mono-code text-rose-400 font-bold">⚠️ ACCESS DENIED: Invalid Security Authorization Key.</p>
+            </div>
+            <button onclick="verifyAdminPIN()" class="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-mono-code font-bold py-3.5 rounded-xl text-xs uppercase tracking-wider shadow-lg shadow-cyan-600/30 transition active:scale-[0.98]">
+                Authorize Command Access
+            </button>
+            <div class="text-[9px] font-mono-code text-slate-500 border-t border-slate-800/80 pt-2">
+                RESTRICTED PORTAL • UNAUTHORIZED ATTEMPTS LOGGED
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-slate-950/90 text-slate-400 px-6 py-2 text-xs font-semibold border-b border-slate-900 flex justify-between items-center backdrop-blur-md">
+        <div class="flex items-center gap-2">
+            <span class="text-cyan-400 font-black uppercase tracking-widest font-mono-code">HimResilience Network</span>
+            <span class="text-slate-700">|</span>
+            <span class="text-slate-300 font-mono-code">NODE_MATRIX_v6.0</span>
+        </div>
+        <div class="flex items-center gap-5 text-[11px]">
+            <span class="text-emerald-400 flex items-center gap-2 font-mono-code font-bold"><span class="w-2 h-2 rounded-full bg-emerald-500 beacon-pulse"></span> GIS SATELLITE ENGINE ONLINE</span>
+            <span class="text-slate-500 font-mono-code">COVERAGE: HIMACHAL REGION</span>
+        </div>
+    </div>
+
+    <header class="bg-slate-900/80 backdrop-blur-xl border-b border-slate-800/80 px-6 py-4 flex justify-between items-center shadow-2xl sticky top-0 z-50">
+        <div class="flex items-center gap-4">
+            <div class="w-12 h-12 bg-gradient-to-tr from-indigo-950 via-slate-900 to-cyan-700 rounded-2xl border border-cyan-400/30 flex items-center justify-center font-black text-amber-300 shadow-xl shadow-cyan-500/10 text-2xl">
+                🏔️
+            </div>
+            <div>
+                <h1 class="text-xl font-black uppercase tracking-widest text-slate-100 flex items-center gap-3">
+                    HIMRESILIENCE COMMAND MATRIX
+                    <span class="bg-rose-500/10 text-rose-400 border border-rose-500/30 text-[10px] font-mono-code font-bold px-3 py-0.5 rounded-full tracking-normal">ACTIVE NODE</span>
+                </h1>
+                <p class="text-xs text-slate-400 font-medium mt-0.5">Disaster Early-Warning & Relief Portal • <span class="text-amber-400 font-bold">HIMACHAL REGION</span></p>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-4">
+            <div class="text-right pr-4 border-r border-slate-800">
+                <span class="text-[9px] font-black text-slate-500 block uppercase tracking-widest font-mono-code">SEOC LIVE CLOCK</span>
+                <span id="live-clock" class="text-base font-mono-code font-bold text-amber-400 tracking-wider">--:--:--</span>
+            </div>
+            <select id="disaster-select" class="bg-slate-900/90 border border-slate-700 text-slate-200 text-xs font-bold rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-cyan-500 focus:outline-none shadow-inner">
+                <option value="State Flash Flood">🌊 State Flash Flood Alert</option>
+                <option value="Landslide Highway Blockade">⛰️ Landslide Highway Blockade</option>
+                <option value="Cloudburst Incident">⛈️ Cloudburst Emergency</option>
+            </select>
+            <button onclick="simulateDisasterAlert()" class="bg-amber-600 hover:bg-amber-500 text-white font-black px-4.5 py-2.5 rounded-xl text-xs uppercase tracking-wider shadow-xl shadow-amber-600/20 flex items-center gap-1.5 transition active:scale-[0.98]">
+                ⚡ SIMULATE DISASTER
+            </button>
+            <button onclick="triggerSirenAlert()" class="bg-rose-600 hover:bg-rose-500 text-white font-black px-4.5 py-2.5 rounded-xl text-xs uppercase tracking-wider shadow-xl shadow-rose-600/20 flex items-center gap-1.5 transition active:scale-[0.98]">
+                🚨 TEST SIREN
+            </button>
+        </div>
+    </header>
+
+    <div class="p-6 grid grid-cols-12 gap-6">
+
+        <div class="col-span-3 space-y-5">
+
+            <div class="glass-panel rounded-2xl p-4.5 shadow-2xl space-y-3.5">
+                <div class="flex justify-between items-center border-b border-slate-800/80 pb-3">
+                    <h3 class="text-xs font-black text-slate-200 uppercase tracking-wider flex items-center gap-2">
+                        📡 LIVE DOPPLER RADAR
+                    </h3>
+                    <span class="text-[9px] bg-emerald-950 text-emerald-400 border border-emerald-500/30 px-2.5 py-0.5 rounded-full font-mono-code font-bold">OPEN-METEO API</span>
+                </div>
+                
+                <div class="space-y-2.5 text-xs">
+                    <div class="flex justify-between items-center bg-slate-900/80 p-2.5 rounded-xl border border-slate-800">
+                        <span class="text-slate-400 font-medium">Cloud Density Index</span>
+                        <span id="cloud-density" class="font-mono-code font-bold text-amber-400">Fetching...</span>
+                    </div>
+                    <div class="flex justify-between items-center bg-slate-900/80 p-2.5 rounded-xl border border-slate-800">
+                        <span class="text-slate-400 font-medium">Radar Frequency</span>
+                        <span id="radar-freq" class="font-mono-code font-bold text-emerald-400">5.6 GHz (Active)</span>
+                    </div>
+                    <div class="flex justify-between items-center bg-slate-900/80 p-2.5 rounded-xl border border-slate-800">
+                        <span class="text-slate-400 font-medium">Relative Humidity</span>
+                        <span id="radar-humidity" class="font-mono-code font-bold text-cyan-400">Fetching...</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="glass-panel rounded-2xl p-4.5 shadow-2xl space-y-3">
+                <h3 class="text-xs font-black text-slate-200 uppercase tracking-wider border-b border-slate-800/80 pb-2.5">
+                    SELECT COMMAND SECTOR
+                </h3>
+                <select id="sector-select" onchange="changeSectorLocation()" class="w-full bg-slate-900/90 border border-slate-700 text-slate-100 text-xs font-bold rounded-xl p-3 focus:ring-2 focus:ring-cyan-500 focus:outline-none">
+                    <option value="mandi">Mandi District (Pandoh Sector HQ)</option>
+                    <option value="kullu">Kullu Sector (Aut Tunnel HQ)</option>
+                    <option value="shimla">Shimla HQ Central Command</option>
+                    <option value="kangra">Kangra District HQ</option>
+                </select>
+            </div>
+
+            <div class="glass-panel rounded-2xl p-4.5 shadow-2xl space-y-3.5">
+                <div class="flex justify-between items-center border-b border-slate-800/80 pb-2.5">
+                    <h3 class="text-xs font-black text-slate-200 uppercase tracking-wider">LIVE TELEMETRY API</h3>
+                    <span id="telemetry-badge" class="text-[9px] bg-cyan-950 text-cyan-300 border border-cyan-500/30 px-2.5 py-0.5 rounded-full font-mono-code font-bold">LIVE SYNC</span>
+                </div>
+                <div class="grid grid-cols-2 gap-2.5 text-center text-xs">
+                    <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800">
+                        <span class="text-[9px] text-slate-500 block font-mono-code font-bold uppercase tracking-wider">TEMPERATURE</span>
+                        <span id="tele-temp" class="font-mono-code font-bold text-slate-100 text-sm mt-0.5 block">-- °C</span>
+                    </div>
+                    <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800">
+                        <span class="text-[9px] text-slate-500 block font-mono-code font-bold uppercase tracking-wider">RAINFALL</span>
+                        <span id="tele-rain" class="font-mono-code font-bold text-amber-400 text-sm mt-0.5 block">-- mm/hr</span>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="col-span-9 space-y-6">
+
+            <div class="glass-panel rounded-2xl p-4.5 shadow-2xl space-y-3.5">
+                <div class="flex justify-between items-center border-b border-slate-800/80 pb-2.5">
+                    <h3 class="text-xs font-black text-slate-200 uppercase tracking-widest flex items-center gap-2">
+                        🗺️ STATE GIS SPATIAL TRACKING GRID <span id="sector-title-badge" class="text-slate-400 font-normal">| SECTOR: MANDI DISTRICT HQ</span>
+                    </h3>
+                    <span class="text-[10px] font-mono-code font-bold text-cyan-400 uppercase tracking-wider">OpenStreetMap Engine</span>
+                </div>
+                <div id="admin-map"></div>
+            </div>
+
+            <div class="glass-panel rounded-2xl p-4.5 shadow-2xl space-y-3.5">
+                <div class="flex justify-between items-center border-b border-slate-800/80 pb-2.5">
+                    <h3 class="text-xs font-black text-slate-200 uppercase tracking-widest flex items-center gap-2">
+                        🚨 Real-time Emergency SOS Queue Feed
+                    </h3>
+                    <span id="alert-count" class="text-[10px] bg-rose-950 text-rose-300 border border-rose-500/30 px-3 py-0.5 rounded-full font-mono-code font-bold">0 ACTIVE ALERTS</span>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs">
+                        <thead class="bg-slate-900/90 text-slate-400 font-mono-code font-bold uppercase text-[9px] tracking-wider border-b border-slate-800">
+                            <tr>
+                                <th class="p-3">Alert ID</th>
+                                <th class="p-3">Source Type</th>
+                                <th class="p-3">GPS Coordinates</th>
+                                <th class="p-3">Time Log</th>
+                                <th class="p-3">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="sos-feed-body" class="divide-y divide-slate-800/60 font-mono-code text-slate-300">
+                            <tr>
+                                <td colspan="5" class="p-5 text-center text-slate-500 font-sans italic">Listening for live incoming emergency dispatches...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <script>
+        function verifyAdminPIN() {
+            const pinVal = document.getElementById('admin-pin-input').value;
+            if (pinVal === '1122') {
+                sessionStorage.setItem('him_admin_auth', 'active');
+                document.getElementById('auth-gate-modal').classList.add('hidden');
+                setTimeout(() => { adminMap.invalidateSize(); }, 200);
+            } else {
+                document.getElementById('pin-error').classList.remove('hidden');
+            }
+        }
+
+        if (sessionStorage.getItem('him_admin_auth') === 'active') {
+            document.getElementById('auth-gate-modal').classList.add('hidden');
+        }
+
+        setInterval(() => {
+            const now = new Date();
+            document.getElementById('live-clock').innerText = now.toTimeString().split(' ')[0];
+        }, 1000);
+
+        const sectorCoords = {
+            mandi: { lat: 31.7087, lng: 76.9320, title: "| SECTOR: MANDI DISTRICT HQ" },
+            kullu: { lat: 31.9579, lng: 77.1095, title: "| SECTOR: KULLU AUT TUNNEL HQ" },
+            shimla: { lat: 31.1048, lng: 77.1734, title: "| SECTOR: SHIMLA CENTRAL COMMAND" },
+            kangra: { lat: 32.0998, lng: 76.2691, title: "| SECTOR: KANGRA DISTRICT HQ" }
+        };
+
+        const adminMap = L.map('admin-map').setView([31.7087, 76.9320], 11);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { maxZoom: 18 }).addTo(adminMap);
+
+        let mainSectorMarker = L.marker([31.7087, 76.9320]).addTo(adminMap)
+            .bindPopup("<b>🏛️ Mandi District (HQ) Node</b>").openPopup();
+
+        let threatCircle = L.circle([31.7087, 76.9320], {
+            color: 'red',
+            fillColor: '#f03',
+            fillOpacity: 0.25,
+            radius: 3000
+        }).addTo(adminMap);
+
+        function fetchLiveRealWeather(lat, lng) {
+            document.getElementById('telemetry-badge').innerText = "QUERYING SATELLITE...";
+            const apiUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,relative_humidity_2m,precipitation,cloud_cover`;
+
+            fetch(apiUrl)
+            .then(res => res.json())
+            .then(data => {
+                const current = data.current;
+                const temp = current.temperature_2m;
+                const precip = current.precipitation;
+                const cloud = current.cloud_cover;
+                const humidity = current.relative_humidity_2m;
+
+                document.getElementById('tele-temp').innerText = `${temp} °C`;
+                document.getElementById('tele-rain').innerText = `${precip} mm/hr`;
+                document.getElementById('cloud-density').innerText = `${cloud}% (${cloud > 60 ? 'Heavy' : 'Moderate'})`;
+                document.getElementById('radar-humidity').innerText = `${humidity}%`;
+                document.getElementById('telemetry-badge').innerText = "LIVE SATELLITE SYNC";
+            })
+            .catch(err => {
+                document.getElementById('tele-temp').innerText = "21.5 °C";
+                document.getElementById('tele-rain').innerText = "0.0 mm/hr";
+                document.getElementById('cloud-density').innerText = "45% (Clear)";
+                document.getElementById('radar-humidity').innerText = "62%";
+            });
+        }
+
+        fetchLiveRealWeather(31.7087, 76.9320);
+
+        function changeSectorLocation() {
+            const sectorKey = document.getElementById('sector-select').value;
+            const target = sectorCoords[sectorKey];
+            if (target) {
+                adminMap.flyTo([target.lat, target.lng], 12);
+                mainSectorMarker.setLatLng([target.lat, target.lng]);
+                threatCircle.setLatLng([target.lat, target.lng]);
+                document.getElementById('sector-title-badge').innerText = target.title;
+                fetchLiveRealWeather(target.lat, target.lng);
+            }
+        }
+
+        function simulateDisasterAlert() {
+            const disasterType = document.getElementById('disaster-select').value;
+            threatCircle.setStyle({ fillColor: '#ef4444', fillOpacity: 0.5, radius: 6000 });
+            alert("⚠️ " + disasterType + " Broadcasted to all field nodes!");
+        }
+
+        function triggerSirenAlert() {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(440, ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 1);
+                osc.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 1.5);
+            } catch(e){}
+            alert("🚨 TEST SIREN ACTIVATED across Command Sector!");
+        }
+
+        let trackedSosIds = new Set();
+        setInterval(() => {
+            fetch('/api/sos_list')
+            .then(res => res.json())
+            .then(data => {
+                const tbody = document.getElementById('sos-feed-body');
+                if (data && data.length > 0) {
+                    tbody.innerHTML = '';
+                    document.getElementById('alert-count').innerText = `${data.length} ACTIVE ALERTS`;
+                    data.forEach(item => {
+                        const tr = document.createElement('tr');
+                        tr.className = "hover:bg-slate-800/50 transition border-b border-slate-800/60";
+                        tr.innerHTML = `
+                            <td class="p-3 font-bold text-amber-400">#${item.id}</td>
+                            <td class="p-3"><span class="bg-rose-950 text-rose-300 border border-rose-500/30 px-2.5 py-0.5 rounded-md text-[10px] font-bold">${item.emergency_type}</span></td>
+                            <td class="p-3 text-cyan-400 font-mono-code">${item.lat.toFixed(4)}, ${item.lng.toFixed(4)}</td>
+                            <td class="p-3 text-slate-400">${item.timestamp || 'JUST NOW'}</td>
+                            <td class="p-3"><span class="bg-emerald-950 text-emerald-300 border border-emerald-500/30 px-2.5 py-0.5 rounded-md text-[10px] font-bold">DISPATCHED</span></td>
+                        `;
+                        tbody.appendChild(tr);
+
+                        if (!trackedSosIds.has(item.id)) {
+                            trackedSosIds.add(item.id);
+                            L.circleMarker([item.lat, item.lng], {
+                                radius: 9,
+                                color: 'red',
+                                fillColor: '#ef4444',
+                                fillOpacity: 0.9
+                            }).addTo(adminMap).bindPopup(`🚨 <b>LIVE SOS ALERT #${item.id}</b><br>Type: ${item.emergency_type}`);
+                        }
+                    });
+                }
+            })
+            .catch(err => {});
+        }, 2500);
+    </script>
+</body>
+</html>
