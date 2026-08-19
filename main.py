@@ -7,10 +7,8 @@ from pydantic import BaseModel
 
 app = FastAPI(title="HimResilience API", version="1.0")
 
-# Base directory for reliable file serving on cloud
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# Database Setup
 def init_db():
     db_path = os.path.join(BASE_DIR, "disaster.db")
     conn = sqlite3.connect(db_path)
@@ -34,27 +32,33 @@ class SOSRequest(BaseModel):
     lng: float
     emergency_type: str = "CRITICAL_LIVE_CITIZEN_SOS"
 
+NO_CACHE_HEADERS = {
+    "Cache-Control": "no-cache, no-store, must-revalidate",
+    "Pragma": "no-cache",
+    "Expires": "0"
+}
+
 @app.get("/")
 def read_root():
     app_file = os.path.join(BASE_DIR, "app.html")
-    return FileResponse(app_file, media_type="text/html")
+    return FileResponse(app_file, media_type="text/html", headers=NO_CACHE_HEADERS)
 
 @app.get("/admin")
 def read_admin():
     admin_file = os.path.join(BASE_DIR, "index.html")
-    return FileResponse(admin_file, media_type="text/html")
+    return FileResponse(admin_file, media_type="text/html", headers=NO_CACHE_HEADERS)
 
 @app.get("/sw.js")
 def read_sw():
     sw_file = os.path.join(BASE_DIR, "sw.js")
-    return FileResponse(sw_file, media_type="application/javascript")
+    return FileResponse(sw_file, media_type="application/javascript", headers=NO_CACHE_HEADERS)
 
 @app.post("/api/sos")
 def create_sos(sos: SOSRequest):
     db_path = os.path.join(BASE_DIR, "disaster.db")
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
-    time_now = datetime.now().strftime("%H:%M:%S")
+    time_now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     cursor.execute(
         "INSERT INTO sos_alerts (lat, lng, emergency_type, timestamp) VALUES (?, ?, ?, ?)",
         (sos.lat, sos.lng, sos.emergency_type, time_now)

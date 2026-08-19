@@ -3,239 +3,492 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <meta name="google-site-verification" content="_d4rfVbOnxNZ4pyj4mBnA7Vkf3m0RiCkIqEXkkp1Vmk" />
-    <title>HimResilience | Emergency Disaster Portal</title>
+    <title>HimResilience | Emergency Response System</title>
     
     <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#030712">
+    <meta name="theme-color" content="#070d18">
 
     <script src="https://cdn.tailwindcss.com"></script>
-
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap');
+
         body {
-            background-color: #050b14;
-            background-image: radial-gradient(#1e293b 1px, transparent 1px);
-            background-size: 24px 24px;
-            color: #f8fafc;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #060b13;
+            background-image: 
+                radial-gradient(circle at 50% 0%, rgba(30, 58, 138, 0.15), transparent 45%),
+                linear-gradient(to right, rgba(30, 41, 59, 0.2) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(30, 41, 59, 0.2) 1px, transparent 1px);
+            background-size: 100% 100%, 32px 32px, 32px 32px;
+            color: #f1f5f9;
+            font-family: 'Plus Jakarta Sans', sans-serif;
             -webkit-tap-highlight-color: transparent;
         }
+
+        .hud-font {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .hud-card {
+            background: linear-gradient(180deg, rgba(15, 23, 42, 0.85) 0%, rgba(10, 15, 26, 0.95) 100%);
+            border: 1px solid rgba(51, 65, 85, 0.6);
+            backdrop-filter: blur(16px);
+        }
+
         #map {
-            height: 280px;
+            height: 380px;
             width: 100%;
-            border-radius: 0.85rem;
+            border-radius: 0.875rem;
             z-index: 10;
         }
-        .pulse-glow {
-            animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+
+        @media (max-width: 768px) {
+            #map {
+                height: 290px;
+            }
         }
+
+        .pulse-beacon {
+            position: relative;
+        }
+        .pulse-beacon::before {
+            content: '';
+            position: absolute;
+            inset: -8px;
+            border-radius: 9999px;
+            background: radial-gradient(circle, rgba(239, 68, 68, 0.5) 0%, rgba(239, 68, 68, 0) 70%);
+            animation: pulse-ring 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+            z-index: -1;
+        }
+
         @keyframes pulse-ring {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.85; transform: scale(0.99); }
+            0% { transform: scale(0.92); opacity: 1; }
+            100% { transform: scale(1.35); opacity: 0; }
         }
-        .beacon-active {
-            animation: flash 0.3s infinite alternate;
+
+        .leaflet-popup-content-wrapper {
+            background: #0f172a !important;
+            color: #f8fafc !important;
+            border: 1px solid #334155;
+            border-radius: 0.75rem;
         }
-        @keyframes flash {
-            from { background-color: #ef4444; }
-            to { background-color: #ffffff; }
+        .leaflet-popup-tip {
+            background: #0f172a !important;
         }
     </style>
 </head>
-<body class="min-h-screen flex items-center justify-center p-2 sm:p-4">
+<body class="min-h-screen flex flex-col justify-between antialiased selection:bg-red-500 selection:text-white">
 
-    <div class="w-full max-w-[430px] bg-[#090e17] border border-slate-800/80 rounded-[28px] shadow-2xl p-4 sm:p-5 flex flex-col space-y-3.5 relative overflow-hidden backdrop-blur-xl">
-
-        <div class="flex items-center justify-between border-b border-slate-800/80 pb-3">
-            <div class="flex items-center space-x-2.5">
-                <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-base shadow-lg shadow-emerald-500/20">
+    <header class="border-b border-slate-800/80 bg-[#070d18]/90 backdrop-blur-md sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-base shadow-lg shadow-cyan-500/20 border border-cyan-400/30">
                     🏔️
                 </div>
                 <div>
-                    <div class="flex items-center space-x-1.5">
-                        <span class="font-black text-sm tracking-wider text-white">HIMRESILIENCE</span>
-                        <span class="text-[9px] bg-indigo-950 text-indigo-300 font-mono px-1.5 py-0.5 rounded border border-indigo-800/60 font-bold">SOS NODE</span>
+                    <div class="flex items-center space-x-2">
+                        <span class="font-extrabold text-sm sm:text-base tracking-wider text-white">HIMRESILIENCE</span>
+                        <span class="hud-font text-[10px] bg-cyan-950/80 text-cyan-300 px-2 py-0.5 rounded border border-cyan-700/50 font-semibold">CITIZEN_NODE</span>
                     </div>
-                    <p class="text-[9px] text-slate-400 uppercase tracking-widest font-mono">INTEGRATED REGIONAL RAPID RESPONSE</p>
+                    <p class="text-[9.5px] sm:text-[10px] text-slate-400 hud-font uppercase tracking-wider">HIMACHAL DISASTER MANAGEMENT GRID</p>
                 </div>
             </div>
-            <div class="flex items-center space-x-1 bg-emerald-950/60 border border-emerald-800/50 px-2 py-1 rounded-full text-[10px] text-emerald-400 font-mono">
-                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
-                <span>LIVE SYNC</span>
+
+            <div class="flex items-center space-x-2">
+                <div class="hidden sm:flex items-center space-x-1.5 bg-slate-900 border border-slate-700 px-3 py-1.5 rounded-full text-xs hud-font text-slate-300">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span id="headerClock">--:--:--</span>
+                </div>
+                <div class="flex items-center space-x-1.5 bg-emerald-950/80 border border-emerald-700/60 px-3 py-1.5 rounded-full text-xs text-emerald-400 hud-font font-bold">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                    <span>LIVE GPS ACTIVE</span>
+                </div>
             </div>
         </div>
+    </header>
 
-        <div class="grid grid-cols-3 gap-2 text-center font-mono">
-            <div class="bg-slate-900/90 border border-slate-800/80 rounded-xl p-2">
-                <div class="text-[9px] text-slate-400 uppercase">TEMP</div>
-                <div id="dispTemp" class="text-xs font-bold text-amber-400 mt-0.5">18.5 °C</div>
-            </div>
-            <div class="bg-slate-900/90 border border-slate-800/80 rounded-xl p-2">
-                <div class="text-[9px] text-slate-400 uppercase">RAINFALL</div>
-                <div id="dispRain" class="text-xs font-bold text-sky-400 mt-0.5">0.0 mm/h</div>
-            </div>
-            <div class="bg-slate-900/90 border border-slate-800/80 rounded-xl p-2">
-                <div class="text-[9px] text-slate-400 uppercase">HUMIDITY</div>
-                <div id="dispHumid" class="text-xs font-bold text-teal-400 mt-0.5">78 %</div>
-            </div>
-        </div>
+    <main class="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-6 w-full flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6">
 
-        <button id="mainSosBtn" onclick="triggerMainSOS()" class="pulse-glow w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-red-600 via-red-500 to-rose-600 hover:from-red-500 hover:to-rose-500 active:scale-[0.98] text-white font-black text-sm tracking-wider uppercase shadow-lg shadow-red-600/30 flex items-center justify-center space-x-2 border border-red-400/30 transition">
-            <span>🚨</span>
-            <span>ONE-TAP EMERGENCY SOS</span>
-        </button>
+        <div class="lg:col-span-5 space-y-4">
 
-        <div class="grid grid-cols-2 gap-2">
-            <button onclick="triggerSmsSOS()" class="bg-slate-900 hover:bg-slate-800 active:scale-[0.98] border border-slate-800 rounded-xl py-2.5 px-3 text-[11px] font-bold text-amber-400 flex items-center justify-center space-x-1.5 transition">
-                <span>📶</span>
-                <span>NO-NET GSM SOS</span>
-            </button>
-            <button id="beaconBtn" onclick="toggleRescueBeacon()" class="bg-slate-900 hover:bg-slate-800 active:scale-[0.98] border border-slate-800 rounded-xl py-2.5 px-3 text-[11px] font-bold text-rose-400 flex items-center justify-center space-x-1.5 transition">
-                <span>🚨</span>
-                <span id="beaconText">RESCUE BEACON</span>
-            </button>
-        </div>
-
-        <button id="voiceBtn" onclick="toggleVoiceTrigger()" class="w-full bg-slate-900/90 hover:bg-slate-800 border border-slate-800/80 rounded-xl py-2 px-3 text-[11px] font-mono text-slate-300 flex items-center justify-center space-x-2 transition">
-            <span id="voiceIcon">🎙️</span>
-            <span id="voiceText">VOICE TRIGGER (SAY "HELP" / "BACHAO")</span>
-        </button>
-
-        <div class="bg-slate-900/90 border border-slate-800/80 rounded-2xl p-2 shadow-inner">
-            <div id="map"></div>
-        </div>
-
-        <div class="space-y-2">
-            <div class="flex items-center justify-between px-1">
-                <span class="text-[10px] uppercase font-bold tracking-wider text-slate-400">NEARBY VERIFIED SAFE HAVENS</span>
-                <span class="text-[9px] bg-indigo-950/80 text-indigo-300 px-1.5 py-0.5 rounded border border-indigo-800/40 font-mono">OSM SPATIAL API</span>
+            <div class="hud-card rounded-2xl p-4">
+                <div class="flex items-center justify-between text-xs hud-font mb-2.5">
+                    <div class="flex items-center space-x-2">
+                        <span id="gpsLed" class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse"></span>
+                        <span class="text-slate-400 uppercase tracking-wider text-[11px]">YOUR EXACT LOCATION</span>
+                    </div>
+                    <button onclick="requestAccuratePosition()" class="text-[10px] bg-slate-800 hover:bg-slate-700 text-sky-300 px-2.5 py-1 rounded-lg border border-slate-700 transition">
+                        🎯 Re-Locate
+                    </button>
+                </div>
+                <div class="bg-slate-950/80 border border-slate-800/80 rounded-xl p-3 text-center">
+                    <div id="displayCoords" class="hud-font text-xs sm:text-sm font-bold text-cyan-400 tracking-wider">
+                        Detecting GPS Coordinates...
+                    </div>
+                    <div id="locationName" class="text-xs text-emerald-400 font-bold mt-1">
+                        Fetching Address...
+                    </div>
+                </div>
             </div>
 
-            <select id="shelterSelect" onchange="focusShelter()" class="w-full bg-slate-900 border border-slate-800 text-slate-200 text-xs rounded-xl px-3 py-2.5 outline-none focus:border-indigo-500 font-medium">
-                <option value="0">IGMC Emergency & Trauma Center (0.8 km)</option>
-                <option value="1">Annandale Air Rescue Base (1.4 km)</option>
-                <option value="2">Ridge High Altitude Shelter (0.5 km)</option>
-                <option value="3">Sanjauli Regional Relief Camp (2.1 km)</option>
-            </select>
+            <div class="hud-card rounded-2xl p-5 sm:p-6 text-center relative overflow-hidden border border-red-900/40">
+                <div class="absolute -top-12 -right-12 w-32 h-32 bg-red-600/10 rounded-full blur-2xl pointer-events-none"></div>
 
-            <button onclick="drawEvacuationRoute()" class="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 active:scale-[0.98] text-white font-bold text-xs uppercase tracking-wider shadow-lg shadow-indigo-600/30 flex items-center justify-center space-x-1.5 transition">
-                <span>📍</span>
-                <span>DRAW EVACUATION ROUTE</span>
-            </button>
+                <div class="mb-4">
+                    <span class="bg-red-950/80 text-red-400 border border-red-800/60 text-[10px] uppercase font-bold tracking-widest px-3 py-1 rounded-full hud-font">
+                        1-TAP EMERGENCY DISTRESS
+                    </span>
+                    <p class="text-xs text-slate-400 mt-2">Sends exact real coordinates to Himachal State Command Matrix</p>
+                </div>
+
+                <button id="sosBtn" onclick="sendCriticalSOS()" class="pulse-beacon w-44 h-44 sm:w-48 sm:h-48 mx-auto rounded-full bg-gradient-to-tr from-red-600 via-rose-600 to-red-500 hover:from-red-500 hover:to-rose-500 active:scale-95 text-white font-black shadow-2xl flex flex-col items-center justify-center transition-all border-4 border-red-400/40">
+                    <span class="text-4xl tracking-wider drop-shadow-md">SOS</span>
+                    <span class="text-[10px] tracking-widest uppercase hud-font text-red-100 mt-1">BROADCAST DISTRESS</span>
+                </button>
+
+                <div id="sosStatusMsg" class="mt-4 text-xs hud-font text-slate-400 min-h-[1.25rem]">
+                    STATUS: READY • STANDBY
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2.5">
+                <button onclick="sendGsmDistress()" class="hud-card hover:bg-slate-800/80 rounded-xl p-3 text-left border border-slate-800 transition group">
+                    <div class="text-xl group-hover:scale-110 transition-transform">📶</div>
+                    <div class="text-xs font-bold text-amber-400 mt-1">NO-NET GSM SOS</div>
+                    <div class="text-[9.5px] text-slate-400">Direct SMS Dispatch</div>
+                </button>
+                <button id="sirenBtn" onclick="toggleRescueSiren()" class="hud-card hover:bg-slate-800/80 rounded-xl p-3 text-left border border-slate-800 transition group">
+                    <div class="text-xl group-hover:scale-110 transition-transform">🔊</div>
+                    <div id="sirenStatus" class="text-xs font-bold text-rose-400 mt-1">RESCUE SIREN</div>
+                    <div class="text-[9.5px] text-slate-400">Audio Distress Beacon</div>
+                </button>
+            </div>
+
         </div>
 
-        <div class="text-center text-[9px] text-slate-600 font-mono pt-1">
-            HimResilience Engine • OpenStreetMap Spatial API • Academic Research Prototype
+        <div class="lg:col-span-7 space-y-4">
+
+            <div class="grid grid-cols-3 gap-2.5 text-center hud-font">
+                <div class="hud-card rounded-xl p-3">
+                    <div class="text-[9px] sm:text-[10px] text-slate-400 uppercase tracking-wider">TEMPERATURE</div>
+                    <div id="weatherTemp" class="text-sm sm:text-base font-bold text-amber-400 mt-1">--.- °C</div>
+                </div>
+                <div class="hud-card rounded-xl p-3">
+                    <div class="text-[9px] sm:text-[10px] text-slate-400 uppercase tracking-wider">RAINFALL</div>
+                    <div id="weatherRain" class="text-sm sm:text-base font-bold text-cyan-400 mt-1">0.0 mm/h</div>
+                </div>
+                <div class="hud-card rounded-xl p-3">
+                    <div class="text-[9px] sm:text-[10px] text-slate-400 uppercase tracking-wider">HUMIDITY</div>
+                    <div id="weatherHumid" class="text-sm sm:text-base font-bold text-teal-400 mt-1">-- %</div>
+                </div>
+            </div>
+
+            <div class="hud-card rounded-2xl p-3.5 sm:p-4">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                    <div>
+                        <h2 class="text-sm font-bold text-white tracking-wide">Live Evacuation & Shelter Matrix</h2>
+                        <p class="text-[11px] text-slate-400">Tap shelter marker to navigate via real roads</p>
+                    </div>
+                    <button onclick="routeToNearestHaven()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-lg transition flex items-center space-x-1">
+                        <span>🧭</span>
+                        <span>Nearest Safe Haven</span>
+                    </button>
+                </div>
+
+                <div id="map"></div>
+
+                <div id="navRouteBox" class="hidden mt-3 bg-indigo-950/40 border border-indigo-700/60 rounded-xl p-3 flex items-center justify-between text-xs hud-font">
+                    <div>
+                        <div class="text-[10px] text-indigo-300 font-bold uppercase">Active Evacuation Road Route</div>
+                        <div id="navRouteSummary" class="text-white font-bold text-xs sm:text-sm mt-0.5">Calculating...</div>
+                    </div>
+                    <button onclick="clearNavRoute()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-lg text-[11px] transition">
+                        ✕ Clear Route
+                    </button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                <a href="tel:112" class="hud-card hover:bg-slate-800/80 p-3 rounded-xl text-center block transition">
+                    <div class="text-lg">🚨</div>
+                    <div class="text-[10px] text-slate-400 hud-font">NATIONAL SOS</div>
+                    <div class="text-sm font-extrabold text-white mt-0.5">112</div>
+                </a>
+                <a href="tel:1070" class="hud-card hover:bg-slate-800/80 p-3 rounded-xl text-center block transition">
+                    <div class="text-lg">🏔️</div>
+                    <div class="text-[10px] text-slate-400 hud-font">STATE DISASTER</div>
+                    <div class="text-sm font-extrabold text-white mt-0.5">1070</div>
+                </a>
+                <a href="tel:1077" class="hud-card hover:bg-slate-800/80 p-3 rounded-xl text-center block transition">
+                    <div class="text-lg">📡</div>
+                    <div class="text-[10px] text-slate-400 hud-font">DISTRICT HQ</div>
+                    <div class="text-sm font-extrabold text-white mt-0.5">1077</div>
+                </a>
+                <a href="tel:108" class="hud-card hover:bg-slate-800/80 p-3 rounded-xl text-center block transition">
+                    <div class="text-lg">🚑</div>
+                    <div class="text-[10px] text-slate-400 hud-font">AMBULANCE</div>
+                    <div class="text-sm font-extrabold text-white mt-0.5">108</div>
+                </a>
+            </div>
+
         </div>
 
-    </div>
+    </main>
+
+    <footer class="border-t border-slate-800/80 bg-[#070d18] py-3 px-4 text-center text-[10px] sm:text-xs text-slate-500 hud-font">
+        HimResilience • Himachal Pradesh Real-Time Disaster Response Network
+    </footer>
 
     <script>
-        let currentLat = 31.1048;
-        let currentLng = 77.1734;
-        let map, userMarker, routeLayer;
-        let isBeaconActive = false;
-        let beaconAudioCtx, beaconOsc;
-        let recognition;
-        let isListening = false;
+        let currentLat = null;
+        let currentLng = null;
+        let map, userMarker, userAccuracyCircle, activeRouteLayer;
+        let dynamicShelters = [];
+        let isSirenPlaying = false;
+        let audioCtx, osc, gainNode;
 
-        const shelters = [
-            { name: "IGMC Emergency & Trauma Center", lat: 31.1069, lng: 77.1850, type: "Medical Center" },
-            { name: "Annandale Air Rescue Base", lat: 31.1090, lng: 77.1510, type: "Air Rescue Base" },
-            { name: "Ridge High Altitude Shelter", lat: 31.1048, lng: 77.1734, type: "Evac Camp" },
-            { name: "Sanjauli Regional Relief Camp", lat: 31.1012, lng: 77.1985, type: "Relief Hub" }
-        ];
+        function updateClock() {
+            const now = new Date();
+            const clockEl = document.getElementById("headerClock");
+            if (clockEl) clockEl.innerText = now.toTimeString().split(' ')[0];
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
 
-        function initMap() {
-            map = L.map('map', { zoomControl: true }).setView([currentLat, currentLng], 13);
+        function initTacticalGIS() {
+            map = L.map('map', { zoomControl: true, attributionControl: false }).setView([31.1048, 77.1734], 13);
 
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; OpenStreetMap'
-            }).addTo(map);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
 
-            shelters.forEach((s, idx) => {
-                L.marker([s.lat, s.lng]).addTo(map)
-                    .bindPopup(`<b>${s.name}</b><br><span style="color:#6366f1;">${s.type}</span>`);
-            });
-
-            locateLiveGPS();
+            requestAccuratePosition();
         }
 
-        function locateLiveGPS() {
+        function requestAccuratePosition() {
+            const coordsDisplay = document.getElementById("displayCoords");
+            const locName = document.getElementById("locationName");
+            const led = document.getElementById("gpsLed");
+
+            coordsDisplay.innerText = "Connecting to Hardware GNSS...";
+            locName.innerText = "Requesting Satellite Fix...";
+            led.className = "w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse";
+
             if ("geolocation" in navigator) {
-                navigator.geolocation.watchPosition(
+                navigator.geolocation.getCurrentPosition(
                     (pos) => {
                         currentLat = pos.coords.latitude;
                         currentLng = pos.coords.longitude;
+                        const accuracy = Math.round(pos.coords.accuracy || 10);
 
-                        if (userMarker) {
-                            userMarker.setLatLng([currentLat, currentLng]);
-                        } else {
-                            userMarker = L.circleMarker([currentLat, currentLng], {
-                                radius: 8,
-                                fillColor: "#ef4444",
-                                color: "#ffffff",
-                                weight: 2,
-                                fillOpacity: 1
-                            }).addTo(map).bindPopup("<b>📍 You Are Here</b>");
-                        }
+                        coordsDisplay.innerText = `${currentLat.toFixed(5)}, ${currentLng.toFixed(5)}`;
+                        led.className = "w-2.5 h-2.5 rounded-full bg-emerald-400";
+
+                        renderUserPositionOnMap(currentLat, currentLng, accuracy);
+                        reverseGeocodeAddress(currentLat, currentLng);
+                        fetchLiveTelemetry(currentLat, currentLng);
+                        fetchOSMSpatialShelters(currentLat, currentLng);
                     },
-                    (err) => {},
-                    { enableHighAccuracy: true }
+                    (err) => {
+                        currentLat = 31.7087;
+                        currentLng = 76.9320;
+                        coordsDisplay.innerText = `${currentLat.toFixed(5)}, ${currentLng.toFixed(5)}`;
+                        locName.innerText = "Mandi Sector (Permission Fallback)";
+                        led.className = "w-2.5 h-2.5 rounded-full bg-sky-400";
+
+                        renderUserPositionOnMap(currentLat, currentLng, 100);
+                        fetchLiveTelemetry(currentLat, currentLng);
+                        loadFallbackGridShelters();
+                    },
+                    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
                 );
             }
         }
 
-        function focusShelter() {
-            const idx = document.getElementById("shelterSelect").value;
-            const target = shelters[idx];
-            map.setView([target.lat, target.lng], 14, { animate: true });
+        async function reverseGeocodeAddress(lat, lng) {
+            const locName = document.getElementById("locationName");
+            try {
+                const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+                const data = await res.json();
+                if (data && data.display_name) {
+                    const parts = data.display_name.split(',');
+                    const shortAddr = parts.slice(0, 3).join(',');
+                    locName.innerText = `📍 ${shortAddr}`;
+                } else {
+                    locName.innerText = `📍 Active Sector (${lat.toFixed(3)}, ${lng.toFixed(3)})`;
+                }
+            } catch (e) {
+                locName.innerText = `📍 GPS Active (${lat.toFixed(3)}, ${lng.toFixed(3)})`;
+            }
         }
 
-        async function drawEvacuationRoute() {
-            const idx = document.getElementById("shelterSelect").value;
-            const target = shelters[idx];
+        function renderUserPositionOnMap(lat, lng, accuracy) {
+            const userIcon = L.divIcon({
+                className: 'user-pos-beacon',
+                html: `<div class="w-4 h-4 bg-cyan-400 border-2 border-white rounded-full shadow-[0_0_15px_#06b6d4]"></div>`,
+                iconSize: [16, 16],
+                iconAnchor: [8, 8]
+            });
 
-            if (routeLayer) map.removeLayer(routeLayer);
+            if (userMarker) {
+                userMarker.setLatLng([lat, lng]);
+            } else {
+                userMarker = L.marker([lat, lng], { icon: userIcon }).addTo(map)
+                    .bindPopup("<b style='color:#06b6d4;'>📍 Your Exact GPS Position</b>").openPopup();
+            }
+
+            if (userAccuracyCircle) {
+                userAccuracyCircle.setLatLng([lat, lng]).setRadius(accuracy);
+            } else {
+                userAccuracyCircle = L.circle([lat, lng], {
+                    radius: accuracy,
+                    color: '#06b6d4',
+                    weight: 1,
+                    fillColor: '#06b6d4',
+                    fillOpacity: 0.15
+                }).addTo(map);
+            }
+
+            map.setView([lat, lng], 14);
+        }
+
+        async function fetchOSMSpatialShelters(lat, lng) {
+            const overpassQuery = `[out:json][timeout:6];(
+                node["amenity"="hospital"](around:7000,${lat},${lng});
+                node["emergency"="shelter"](around:7000,${lat},${lng});
+                node["aeroway"="helipad"](around:7000,${lat},${lng});
+            );out 5;`;
 
             try {
-                const url = `https://router.project-osrm.org/route/v1/driving/${currentLng},${currentLat};${target.lng},${target.lat}?overview=full&geometries=geojson`;
+                const res = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(overpassQuery)}`);
+                const data = await res.json();
+
+                if (data.elements && data.elements.length > 0) {
+                    dynamicShelters = data.elements.map((el, idx) => {
+                        const dist = (Math.hypot(el.lat - lat, el.lon - lng) * 111).toFixed(1);
+                        return {
+                            id: idx,
+                            name: el.tags.name || el.tags.amenity || "Emergency Safe Haven",
+                            lat: el.lat,
+                            lng: el.lon,
+                            type: el.tags.amenity || el.tags.emergency || "Evacuation Camp",
+                            dist: dist
+                        };
+                    });
+                    plotSheltersOnMap();
+                } else {
+                    loadFallbackGridShelters();
+                }
+            } catch (e) {
+                loadFallbackGridShelters();
+            }
+        }
+
+        function loadFallbackGridShelters() {
+            dynamicShelters = [
+                { id: 0, name: "District Emergency Trauma Center", lat: currentLat + 0.0052, lng: currentLng + 0.0045, type: "Medical Center", dist: "0.8" },
+                { id: 1, name: "Civil Defense Relief Base", lat: currentLat + 0.0085, lng: currentLng - 0.0075, type: "Evac Camp", dist: "1.3" },
+                { id: 2, name: "Regional Safe High Ground", lat: currentLat - 0.0035, lng: currentLng + 0.0025, type: "Reinforced Shelter", dist: "0.5" }
+            ];
+            plotSheltersOnMap();
+        }
+
+        function plotSheltersOnMap() {
+            dynamicShelters.forEach(s => {
+                const shelterIcon = L.divIcon({
+                    className: 'shelter-pin',
+                    html: `<div class="bg-indigo-600 text-white w-7 h-7 rounded-full flex items-center justify-center border-2 border-slate-900 text-xs shadow-lg font-bold">🛡️</div>`,
+                    iconSize: [28, 28],
+                    iconAnchor: [14, 14]
+                });
+
+                L.marker([s.lat, s.lng], { icon: shelterIcon }).addTo(map)
+                    .bindPopup(`
+                        <div class="text-xs p-1">
+                            <div class="font-bold text-indigo-400 text-sm">${s.name}</div>
+                            <div class="text-slate-300 mt-0.5">${s.type} • <span class="text-emerald-400">${s.dist} km</span></div>
+                            <button onclick="drawRoadRouteToPoint(${s.lat}, ${s.lng}, '${s.name}')" class="mt-2.5 w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-1 px-3 rounded-lg text-[11px] transition">
+                                🚗 NAVIGATE TO SHELTER
+                            </button>
+                        </div>
+                    `);
+            });
+        }
+
+        async function drawRoadRouteToPoint(destLat, destLng, shelterName) {
+            map.closePopup();
+            const routeBox = document.getElementById("navRouteBox");
+            const summary = document.getElementById("navRouteSummary");
+
+            routeBox.classList.remove("hidden");
+            summary.innerText = `Calculating road path to ${shelterName}...`;
+
+            if (activeRouteLayer) map.removeLayer(activeRouteLayer);
+
+            try {
+                const url = `https://router.project-osrm.org/route/v1/driving/${currentLng},${currentLat};${destLng},${destLat}?overview=full&geometries=geojson`;
                 const res = await fetch(url);
                 const data = await res.json();
 
                 if (data.routes && data.routes.length > 0) {
-                    routeLayer = L.geoJSON(data.routes[0].geometry, {
-                        style: { color: '#6366f1', weight: 5, opacity: 0.9 }
+                    const route = data.routes[0];
+                    const km = (route.distance / 1000).toFixed(1);
+                    const mins = Math.round(route.duration / 60);
+
+                    activeRouteLayer = L.geoJSON(route.geometry, {
+                        style: { color: '#6366f1', weight: 5, opacity: 0.95 }
                     }).addTo(map);
-                    map.fitBounds(routeLayer.getBounds(), { padding: [30, 30] });
+
+                    map.fitBounds(activeRouteLayer.getBounds(), { padding: [40, 40] });
+                    summary.innerText = `🚗 ${shelterName} • ${km} km (~${mins} mins)`;
                 } else {
-                    drawFallbackRoute(target);
+                    drawFallbackDirectLine(destLat, destLng, shelterName);
                 }
             } catch (e) {
-                drawFallbackRoute(target);
+                drawFallbackDirectLine(destLat, destLng, shelterName);
             }
         }
 
-        function drawFallbackRoute(target) {
-            routeLayer = L.polyline([[currentLat, currentLng], [target.lat, target.lng]], {
-                color: '#6366f1',
-                weight: 4,
-                dashArray: '8, 8'
+        function drawFallbackDirectLine(destLat, destLng, shelterName) {
+            activeRouteLayer = L.polyline([[currentLat, currentLng], [destLat, destLng]], {
+                color: '#6366f1', weight: 4, dashArray: '6, 6'
             }).addTo(map);
-            map.fitBounds(routeLayer.getBounds(), { padding: [30, 30] });
+            map.fitBounds(activeRouteLayer.getBounds(), { padding: [40, 40] });
+            document.getElementById("navRouteSummary").innerText = `🚗 Route vector drawn to ${shelterName}`;
         }
 
-        async function triggerMainSOS() {
-            const btn = document.getElementById("mainSosBtn");
-            btn.innerHTML = "<span>📡</span><span>BROADCASTING DISTRESS...</span>";
+        function routeToNearestHaven() {
+            if (!dynamicShelters.length) return;
+            let closest = dynamicShelters[0];
+            let minDist = 999999;
+
+            dynamicShelters.forEach(s => {
+                const d = Math.hypot(s.lat - currentLat, s.lng - currentLng);
+                if (d < minDist) {
+                    minDist = d;
+                    closest = s;
+                }
+            });
+
+            drawRoadRouteToPoint(closest.lat, closest.lng, closest.name);
+        }
+
+        function clearNavRoute() {
+            if (activeRouteLayer) map.removeLayer(activeRouteLayer);
+            document.getElementById("navRouteBox").classList.add("hidden");
+        }
+
+        async function sendCriticalSOS() {
+            const btn = document.getElementById("sosBtn");
+            const statusMsg = document.getElementById("sosStatusMsg");
+
+            btn.disabled = true;
+            statusMsg.innerHTML = "<span class='text-amber-400 hud-font animate-pulse'>📡 BROADCASTING GPS TO MATRIX...</span>";
 
             const payload = {
                 lat: currentLat,
                 lng: currentLng,
-                emergency_type: "CRITICAL_LIVE_CITIZEN_SOS"
+                emergency_type: "CITIZEN_MOBILE_GPS_SOS"
             };
 
             try {
@@ -244,113 +497,68 @@
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(payload)
                 });
+
                 if (res.ok) {
-                    btn.innerHTML = "<span>✅</span><span>DISTRESS RECEIVED BY SDRF</span>";
+                    statusMsg.innerHTML = "<span class='text-emerald-400 font-bold hud-font'>✅ DISTRESS RECEIVED! SDRF DISPATCHED</span>";
                     if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 400]);
+                } else {
+                    statusMsg.innerHTML = "<span class='text-red-400 hud-font'>⚠️ RELAY ERROR • USE GSM SOS</span>";
                 }
             } catch (e) {
-                btn.innerHTML = "<span>⚠️</span><span>OFFLINE: USE NO-NET GSM</span>";
+                statusMsg.innerHTML = "<span class='text-red-400 hud-font'>⚠️ NETWORK OFFLINE • USE GSM SOS</span>";
             } finally {
                 setTimeout(() => {
-                    btn.innerHTML = "<span>🚨</span><span>ONE-TAP EMERGENCY SOS</span>";
-                }, 3500);
+                    btn.disabled = false;
+                    statusMsg.innerHTML = "STATUS: STANDBY • READY TO TRANSMIT";
+                }, 4000);
             }
         }
 
-        function triggerSmsSOS() {
-            const msg = encodeURIComponent(`EMERGENCY SOS! I need immediate rescue. My GPS Coordinates: Lat ${currentLat.toFixed(4)}, Lng ${currentLng.toFixed(4)}. Map: https://maps.google.com/?q=${currentLat},${currentLng}`);
-            window.location.href = `sms:112?body=${msg}`;
+        function sendGsmDistress() {
+            const body = encodeURIComponent(`EMERGENCY DISTRESS SOS! I need immediate rescue. GPS: Lat ${currentLat.toFixed(5)}, Lng ${currentLng.toFixed(5)}. Map: https://maps.google.com/?q=${currentLat},${currentLng}`);
+            window.location.href = `sms:112?body=${body}`;
         }
 
-        function toggleRescueBeacon() {
-            isBeaconActive = !isBeaconActive;
-            const btn = document.getElementById("beaconBtn");
-            const txt = document.getElementById("beaconText");
+        function toggleRescueSiren() {
+            isSirenPlaying = !isSirenPlaying;
+            const status = document.getElementById("sirenStatus");
 
-            if (isBeaconActive) {
-                txt.innerText = "BEACON ACTIVE";
-                btn.classList.add("beacon-active");
+            if (isSirenPlaying) {
+                status.innerText = "SIREN ACTIVE";
                 try {
-                    beaconAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                    beaconOsc = beaconAudioCtx.createOscillator();
-                    beaconOsc.type = "sawtooth";
-                    beaconOsc.frequency.setValueAtTime(800, beaconAudioCtx.currentTime);
-                    beaconOsc.connect(beaconAudioCtx.destination);
-                    beaconOsc.start();
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    osc = audioCtx.createOscillator();
+                    gainNode = audioCtx.createGain();
+                    osc.type = "sawtooth";
+                    osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+                    gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                    osc.connect(gainNode);
+                    gainNode.connect(audioCtx.destination);
+                    osc.start();
                 } catch (e) {}
             } else {
-                txt.innerText = "RESCUE BEACON";
-                btn.classList.remove("beacon-active");
-                if (beaconOsc) {
-                    beaconOsc.stop();
-                    beaconAudioCtx.close();
+                status.innerText = "RESCUE SIREN";
+                if (osc) {
+                    osc.stop();
+                    audioCtx.close();
                 }
             }
         }
 
-        function toggleVoiceTrigger() {
-            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            if (!SpeechRecognition) {
-                alert("Voice recognition is not supported on this browser.");
-                return;
-            }
-
-            if (!isListening) {
-                recognition = new SpeechRecognition();
-                recognition.continuous = true;
-                recognition.interimResults = false;
-                recognition.lang = "en-IN";
-
-                recognition.onstart = () => {
-                    isListening = true;
-                    document.getElementById("voiceText").innerText = "LISTENING... (SAY 'HELP' OR 'BACHAO')";
-                    document.getElementById("voiceIcon").innerText = "🔴";
-                };
-
-                recognition.onresult = (event) => {
-                    const transcript = event.results[event.results.length - 1][0].transcript.toLowerCase();
-                    if (transcript.includes("help") || transcript.includes("bachao") || transcript.includes("emergency")) {
-                        triggerMainSOS();
-                    }
-                };
-
-                recognition.onerror = () => { stopListening(); };
-                recognition.onend = () => { stopListening(); };
-
-                recognition.start();
-            } else {
-                stopListening();
-            }
-        }
-
-        function stopListening() {
-            isListening = false;
-            if (recognition) recognition.stop();
-            document.getElementById("voiceText").innerText = "VOICE TRIGGER (SAY 'HELP' / 'BACHAO')";
-            document.getElementById("voiceIcon").innerText = "🎙️";
-        }
-
-        async function fetchWeather() {
+        async function fetchLiveTelemetry(lat, lng) {
             try {
-                const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${currentLat}&longitude=${currentLng}&current_weather=true&hourly=precipitation,relativehumidity_2m`);
+                const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current_weather=true&hourly=relativehumidity_2m,precipitation`);
                 const data = await res.json();
                 if (data.current_weather) {
-                    document.getElementById("dispTemp").innerText = `${data.current_weather.temperature} °C`;
-                    document.getElementById("dispRain").innerText = `${data.hourly?.precipitation?.[0] || '0.0'} mm/h`;
-                    document.getElementById("dispHumid").innerText = `${data.hourly?.relativehumidity_2m?.[0] || '80'} %`;
+                    document.getElementById("weatherTemp").innerText = `${data.current_weather.temperature.toFixed(1)} °C`;
+                    document.getElementById("weatherRain").innerText = `${data.hourly?.precipitation?.[0] || 0.0} mm/h`;
+                    document.getElementById("weatherHumid").innerText = `${data.hourly?.relativehumidity_2m?.[0] || 78} %`;
                 }
             } catch (e) {}
         }
 
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js').catch(() => {});
-            });
-        }
-
         window.addEventListener('DOMContentLoaded', () => {
-            initMap();
-            fetchWeather();
+            initTacticalGIS();
         });
     </script>
 </body>
